@@ -77,17 +77,19 @@ public struct AnimateText<E: ATTextAnimateEffect>: View {
             }else {
                 GeometryReader { geometry in
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(splitElements(containerWidth: geometry.size.width), id: \.self) { lineElements in
+                        let lines = splitElements(containerWidth: geometry.size.width)
+                        ForEach(Array(lines.enumerated()), id: \.offset) { lineIndex, lineElements in
                             HStack {
                                 Spacer()
                                 HStack(spacing: 0) {
-                                    ForEach(Array(lineElements.enumerated()), id: \.offset) { index, element in
+                                    ForEach(Array(lineElements.enumerated()), id: \.offset) { indexInLine, element in
+                                        let globalIndex = lines.prefix(lineIndex).reduce(0) { $0 + $1.count } + indexInLine
                                         let data = ATElementData(element: element,
-                                                                 type: self.type,
-                                                                 index: index,
-                                                                 count: elements.count,
-                                                                 value: value,
-                                                                 size: size)
+                                            type: self.type,
+                                            index: globalIndex,
+                                            count: elements.count,
+                                            value: value,
+                                            size: size)
                                         if toggle {
                                             Text(element).modifier(E(data, userInfo))
                                         } else {
