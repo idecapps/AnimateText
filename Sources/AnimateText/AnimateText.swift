@@ -139,6 +139,9 @@ public struct AnimateText<E: ATTextAnimateEffect>: View {
     }
     
     func splitElements(containerWidth: CGFloat) -> [[String]] {
+        guard containerWidth >= 50 else {
+            return [elements]
+        }
         var lines: [[String]] = [[]]
         var currentLineIndex = 0
         var remainingWidth: CGFloat = containerWidth
