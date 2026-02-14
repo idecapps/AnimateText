@@ -27,54 +27,59 @@ import SwiftUI
 
 /// A view that animates binding text. Passing the effect type as a generic.
 public struct AnimateText<E: ATTextAnimateEffect>: View {
-    
+
     /// Binding the text to be expressed.
     @Binding private var text: String
-    
+
     /// The type used to split text.
     var type: ATUnitType = .letters
-    
+
     /// Custom user info for the effect.
     var userInfo: Any? = nil
-    
+
+    /// When false, text is shown immediately with no per-character animation.
+    var animated: Bool = true
+
     /// The height of the Text view.
     @State private var height: CGFloat = 0
-    
+
     /// Split text into individual elements.
     @State private var elements: Array<String> = []
-    
+
     /// A value used for animation processing. A value between 0 and 1.
     @State private var value: Double = 0
-    
+
     /// Used to re-create the view.
     @State private var toggle: Bool = false
-    
+
     /// The first text is exposed as the default text.
     @State private var isChanged: Bool = false
-    
+
     /// The size of the Text view.
     @State private var size: CGSize = .zero
-    
+
     /// initialize `AnimateText`
     ///
     /// - Parameters:
     ///   - text: Bind the text you want to express.
     ///   - type: The type used to split text. `ATUnitType`
     ///   - userInfo: Custom user info for the effect.
+    ///   - animated: When false, text appears immediately without letter-by-letter animation.
     ///
-    public init(_ text: Binding<String>, type: ATUnitType = .letters, userInfo: Any? = nil) {
+    public init(_ text: Binding<String>, type: ATUnitType = .letters, userInfo: Any? = nil, animated: Bool = true) {
         _text = text
         self.type = type
         self.userInfo = userInfo
+        self.animated = animated
     }
-    
+
     public var body: some View {
         ZStack(alignment: .leading) {
             if !isChanged {
                 Text(text)
                     .takeSize($size)
-            .multilineTextAlignment(.center)
-            }else {
+                    .multilineTextAlignment(.center)
+            } else {
                 GeometryReader { geometry in
                     VStack(alignment: .leading, spacing: 0) {
                         let lines = splitElements(containerWidth: geometry.size.width)
@@ -88,7 +93,7 @@ public struct AnimateText<E: ATTextAnimateEffect>: View {
                                             type: self.type,
                                             index: globalIndex,
                                             count: elements.count,
-                                            value: value,
+                                            value: animated ? value : 1,
                                             size: size)
                                         if toggle {
                                             Text(element).modifier(E(data, userInfo))
@@ -113,25 +118,36 @@ public struct AnimateText<E: ATTextAnimateEffect>: View {
             }
         }
         .onChange(of: text) { _ in
-            withAnimation {
-                value = 0
-                getText(text)
-                toggle.toggle()
-            }
+            getText(text)
+            toggle.toggle()
             self.isChanged = true
-            DispatchQueue.main.async {
+            if animated {
+                withAnimation {
+                    value = 0
+                }
+                DispatchQueue.main.async {
+                    value = 1
+                }
+            } else {
+                value = 1
+            }
+        }
+        .onAppear {
+            if !animated && !text.isEmpty {
+                getText(text)
+                isChanged = true
                 value = 1
             }
         }
     }
-    
+
     private func getText(_ text: String) {
         switch type {
         case .letters:
             self.elements = text.map { String($0) }
         case .words:
             var elements = [String]()
-            text.components(separatedBy: " ").forEach{
+            text.components(separatedBy: " ").forEach {
                 elements.append($0)
                 elements.append(" ")
             }
@@ -139,7 +155,7 @@ public struct AnimateText<E: ATTextAnimateEffect>: View {
             self.elements = elements
         }
     }
-    
+
     func splitElements(containerWidth: CGFloat) -> [[String]] {
         guard containerWidth >= 50 else {
             return [elements]
@@ -149,7 +165,7 @@ public struct AnimateText<E: ATTextAnimateEffect>: View {
         var remainingWidth: CGFloat = containerWidth
         var currentWord: String = ""
         var words: [String] = []
-        
+
         // build words
         for (index, element) in elements.enumerated() {
             if element == " " {
@@ -159,23 +175,23 @@ public struct AnimateText<E: ATTextAnimateEffect>: View {
             } else {
                 // Add the element to the current word
                 currentWord.append(element)
-                
+
                 // Check if this is the last element
                 if index == elements.count - 1 {
                     words.append(currentWord)
                 }
             }
         }
-        
+
         // build sentences, split words into elements
         for (index, word) in words.enumerated() {
             var letters: [String] = []
             for char in word {
                 letters.append(String(char))
             }
-            
+
             let wordWidth = word.width(withConstrainedHeight: 1000, font: .systemFont(ofSize: 15)) // change the size if you change a font on your contentView
-            
+
             if index == 0 {
                 lines[currentLineIndex].append(contentsOf: letters)
                 remainingWidth -= wordWidth
